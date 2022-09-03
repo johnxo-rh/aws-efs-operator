@@ -16,19 +16,19 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	"sigs.k8s.io/controller-runtime/pkg/client/fake" //nolint:staticcheck
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	// logf "sigs.k8s.io/controller-runtime/pkg/log"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // TODO: Test add()/watches somehow?
 
-func setup() (logr.Logger, *ReconcileStatics) {
+func setup() (logr.Logger, *StaticsReconciler) {
 
 	// OpenShift types need to be registered explicitly
 	scheme.Scheme.AddKnownTypes(securityv1.SchemeGroupVersion, &securityv1.SecurityContextConstraints{})
@@ -45,8 +45,11 @@ func setup() (logr.Logger, *ReconcileStatics) {
 	if err != nil {
 		panic(err)
 	}
-
-	return logf.Log.Logger, &ReconcileStatics{client: client, scheme: scheme.Scheme}
+	logger, errx := logr.FromContext(context.TODO())
+	if err != nil {
+		panic(errx)
+	}
+	return logger, &StaticsReconciler{client: client, scheme: scheme.Scheme}
 }
 
 // TestStartup simulates operator startup by creating the statics before the CRD is discovered,
@@ -73,7 +76,7 @@ func TestStartup(t *testing.T) {
 			t.Fatalf("Expected no OwnerReferences but got %v", orefs)
 		}
 		// Until we reconcile
-		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Didn't expect an error, but got %v", err)
 		}
@@ -115,7 +118,7 @@ func TestReconcile(t *testing.T) {
 	// We'll use these later
 	var (
 		dsStatic  util.Ensurable
-		resources map[string]runtime.Object
+		resources map[string]crclient.Object
 	)
 
 	// Now let's run the reconciler for each of our tracked resources.
@@ -126,7 +129,7 @@ func TestReconcile(t *testing.T) {
 			dsStatic = staticResource
 		}
 		logger.Info("Bootstrap: reconciling", "resource", nsname)
-		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Didn't expect an error, but got %v", err)
 		}
@@ -146,7 +149,7 @@ func TestReconcile(t *testing.T) {
 	}
 
 	// Now reconcile it
-	res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: dsStatic.GetNamespacedName()})
+	res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: dsStatic.GetNamespacedName()})
 	if err != nil {
 		t.Fatalf("Didn't expect an error, but got %v", err)
 	}
@@ -184,7 +187,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 		}
 		for _, staticResource := range staticResources {
 			nsname := staticResource.GetNamespacedName()
-			if _, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname}); err != nil {
+			if _, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname}); err != nil {
 				t.Fatal(err)
 			}
 
@@ -232,7 +235,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 	// Overkill, but prove this behaves the same for any static
 	for _, staticResource := range staticResources {
 		nsname := staticResource.GetNamespacedName()
-		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Expected no error reconciling %v but got %v", nsname, err)
 		}
@@ -253,7 +256,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 	// Same again
 	for _, staticResource := range staticResources {
 		nsname := staticResource.GetNamespacedName()
-		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Expected no error reconciling %v but got %v", nsname, err)
 		}
@@ -277,7 +280,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 		// Set our fake to error on this reconcile.
 		fcwce.GetBehavior[i] = fixtures.AlreadyExists
 		nsname := staticResource.GetNamespacedName()
-		res, err := r.Reconcile(context.TODO(),reconcile.Request{NamespacedName: nsname})
+		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
 		if err != nil {
 			t.Fatalf("Expected no error reconciling %v but got %v", nsname, err)
 		}
@@ -293,7 +296,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 func TestReconcileUnexpected(t *testing.T) {
 	_, r := setup()
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "foo", Name: "bar"}}
-	res, err := r.Reconcile(context.TODO(),req)
+	res, err := r.Reconcile(context.TODO(), req)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -315,9 +318,9 @@ func TestReconcileEnsureFails(t *testing.T) {
 	// Any resource is fine, just making sure we actually try to Ensure it
 	staticResource := staticResources[3]
 
-	rs := ReconcileStatics{client: fcwce, scheme: scheme.Scheme}
+	rs := StaticsReconciler{client: fcwce, scheme: scheme.Scheme}
 
-	res, err := rs.Reconcile(context.TODO(),reconcile.Request{NamespacedName: staticResource.GetNamespacedName()})
+	res, err := rs.Reconcile(context.TODO(), reconcile.Request{NamespacedName: staticResource.GetNamespacedName()})
 
 	if err == nil {
 		t.Fatal("Expected an error")

@@ -23,17 +23,18 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
+	
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	"k8s.io/client-go/plugin/pkg/client/auth"
+	
 	"k8s.io/client-go/rest"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"openshift/aws-efs-operator/api"
+	// "openshift/aws-efs-operator/api"
 	awsefsControllers "openshift/aws-efs-operator/controllers"
+	
 	statics "openshift/aws-efs-operator/controllers/statics"
 	"openshift/aws-efs-operator/version"
 	awsefsAPI "openshift/aws-efs-operator/api"
@@ -42,22 +43,18 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	monclientv1 "github.com/prometheus-operator/prometheus-operator/pkg/client/versioned/typed/monitoring/v1"
 	"openshift/aws-efs-operator/pkg/k8sutil"
-	// "github.com/operator-framework/operator-lib/leader"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	// v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	// "sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	opmetrics "github.com/openshift/operator-custom-metrics/pkg/metrics"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	// "sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	awsefsv1alpha1 "openshift/aws-efs-operator/api/v1alpha1"
 
@@ -70,8 +67,9 @@ var (
 	operatorMetricsPort int32 = 8686
 	customMetricsPath       = "/metrics"
 	scheme                    = apiruntime.NewScheme()
+	log = ctrl.Log.WithName("cmd")
 )
-var log = logf.Log.WithName("cmd")
+
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Operator Version: %s", version.Version))
@@ -90,31 +88,19 @@ func init() {
 func main() {
 	var metricsAddr string
 	var probeAddr string
-	var enableLeaderElection bool
-	enableLeaderElection = true
+	// var enableLeaderElection bool
+	enableLeaderElection := true
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":"+fmt.Sprintf("%d", metricsPort), "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	opts := zap.Options{
+		Development: false,
+	}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
 
-	// Add the zap logger flag set to the CLI. The flag set must
-	// be added before calling pflag.Parse().
-	pflag.CommandLine.AddFlagSet(zap.FlagSet())
-
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-
-	pflag.Parse()
-
-	// Use a zap logr.Logger implementation. If none of the zap
-	// flags are configured (or if the zap flag set is not being
-	// used), this defaults to a production zap logger.
-	//
-	// The logger instantiated here can be changed to any logger
-	// implementing the logr.Logger interface. This logger will
-	// be propagated through the whole operator, generating
-	// uniform and structured logs.
-	logf.SetLogger(zap.Logger())
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	// logf.SetLogger(zap.Logger())
 
 	printVersion()
 
@@ -161,11 +147,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Add OpenShift security apis to scheme
-	if err := awsefsAPI.Install(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	// Add OpenShift security apis to scheme. TODO
+	// if err := awsefsAPI.Install(mgr.GetScheme()); err != nil {
+	// 	log.Error(err, "")
+	// 	os.Exit(1)
+	// }
 
 	// Need this for the CustomResourceDefinition Kind
 	if err := apiextensions.AddToScheme(mgr.GetScheme()); err != nil {
@@ -173,11 +159,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup all Controllers
-	if err := awsefsControllers.AddToManager(mgr); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	// Setup all Controllers. TODO
+	// if err := awsefsControllers.AddToManager(mgr); err != nil {
+	// 	log.Error(err, "")
+	// 	os.Exit(1)
+	// }
+
 	// Get a config to talk to the apiserver
 	ctx := context.TODO()
 	cfg, err := config.GetConfig()
@@ -199,7 +186,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ns, err := awsefsControllers.util.GetOperatorNamespace()
+	ns, err := awsefsControllers.GetOperatorNamespace()
 	if err != nil {
 		os.Exit(1)
 	}

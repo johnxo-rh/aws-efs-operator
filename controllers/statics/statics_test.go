@@ -2,33 +2,36 @@ package statics
 
 import (
 	"fmt"
-	"openshift/aws-efs-operator/pkg/fixtures"
-	"openshift/aws-efs-operator/pkg/util"
-	"testing"
-
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	securityv1 "github.com/openshift/api/security/v1"
 	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"openshift/aws-efs-operator/pkg/fixtures"
+	"openshift/aws-efs-operator/pkg/util"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"testing"
 
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	// nolint:staticcheck
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestEnsureStatics(t *testing.T) {
 	// Future-proof this test against new statics being added.
 	checkNumStatics(t)
 
-	logger := logf.Log.Logger
 	ctx := context.TODO()
-	var statics map[string]runtime.Object
+	logger, errx := logr.FromContext(ctx)
+	if errx != nil {
+		panic(errx)
+	}
+
+	var statics map[string]crclient.Object
 
 	// OpenShift types need to be registered explicitly
 	scheme.Scheme.AddKnownTypes(securityv1.SchemeGroupVersion, &securityv1.SecurityContextConstraints{})
@@ -112,7 +115,8 @@ func TestEnsureStaticsError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	log := fixtures.NewMockLogger(ctrl)
+	log := fixtures.NewMockLogSink(ctrl)
+	lr := logr.New(log)
 	client := fixtures.NewMockClient(ctrl)
 
 	// Not realistic, we're just contriving a way to make Ensure fail
@@ -127,7 +131,7 @@ func TestEnsureStaticsError(t *testing.T) {
 		Error(theError, "Failed to retrieve.", "resource", gomock.Any()).
 		Times(expectedNumStatics)
 
-	err := EnsureStatics(log, client)
+	err := EnsureStatics(lr, client)
 	if err == nil {
 		t.Fatal("Expected EnsureStatics to fail hard.")
 	}
@@ -178,8 +182,8 @@ func Test_static_GetType(t *testing.T) {
 func Test_AlwaysEqual(t *testing.T) {
 	// This is kind of silly, but...
 	type args struct {
-		local  runtime.Object
-		server runtime.Object
+		local  crclient.Object
+		server crclient.Object
 	}
 	tests := []struct {
 		name string
