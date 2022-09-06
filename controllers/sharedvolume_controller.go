@@ -218,7 +218,12 @@ func (r *SharedVolumeReconciler) ensureFinalizer(logger logr.Logger, sharedVolum
 	}
 	logger.Info("Registering finalizer")
 	controllerutil.AddFinalizer(sharedVolume, svFinalizer)
-	if err := r.client.Update(context.TODO(), sharedVolume); err != nil {
+	
+	
+	ctx := logr.NewContext(context.TODO(), logger)
+	
+	
+	if err := r.client.Update(ctx, sharedVolume); err != nil {
 		logger.Error(err, "Failed to register finalizer")
 		return false, err
 	}
@@ -252,10 +257,10 @@ func (r *SharedVolumeReconciler) handleDelete(logger logr.Logger, sharedVolume *
 		// Delete did the logging
 		return err
 	}
-
+	ctx := logr.NewContext(context.TODO(), logger)
 	// We're done. Remove our finalizer and let the SharedVolume deletion proceed.
 	controllerutil.RemoveFinalizer(sharedVolume, svFinalizer)
-	if err := r.client.Update(context.TODO(), sharedVolume); err != nil {
+	if err := r.client.Update(ctx, sharedVolume); err != nil {
 		logger.Error(err, "Failed to remove finalizer")
 		return err
 	}
@@ -317,7 +322,8 @@ func (r *SharedVolumeReconciler) updateStatus(logger logr.Logger, sharedVolume *
 	apiGroup := ""
 	sharedVolume.Status.ClaimRef.APIGroup = &apiGroup
 	sharedVolume.Status.ClaimRef.Kind = pvcKind
-	if err := r.client.Status().Update(context.TODO(), sharedVolume); err != nil {
+	ctx := logr.NewContext(context.TODO(), logger)
+	if err := r.client.Status().Update(ctx, sharedVolume); err != nil {
 		logger.Error(err, "Failed to update SharedVolume status")
 		return err
 	}
@@ -354,7 +360,9 @@ func (r *SharedVolumeReconciler) uneditSharedVolume(
 	nsname := types.NamespacedName{
 		Name: pvname,
 	}
-	if err = r.client.Get(context.TODO(), nsname, pv); err != nil {
+	ctx := logr.NewContext(context.TODO(), logger)
+
+	if err = r.client.Get(ctx, nsname, pv); err != nil {
 		if errors.IsNotFound(err) {
 			// We haven't created this PV yet. One way or another, this means we need to trust that
 			// the SharedVolume is copacetic.
@@ -434,7 +442,7 @@ func (r *SharedVolumeReconciler) uneditSharedVolume(
 	logger.Info("Detected changes to SharedVolume. Don't do that. "+
 		"If you need to attach to a different file system or access point, "+
 		"delete the SharedVolume and create a new one. Reverting...", "SharedVolume", sharedVolume)
-	if err = r.client.Update(context.TODO(), sharedVolume); err != nil {
+	if err = r.client.Update(ctx, sharedVolume); err != nil {
 		logger.Error(err, "Failed to revert changes to SharedVolume")
 		return
 	}
