@@ -15,6 +15,8 @@ import (
 	"openshift/aws-efs-operator/pkg/util"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+	k8serrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	// nolint:staticcheck
@@ -119,16 +121,22 @@ func TestEnsureStaticsError(t *testing.T) {
 	lr := logr.New(log)
 	client := fixtures.NewMockClient(ctrl)
 
+	var fakeNS=types.NamespacedName{
+		Name:      "bogus-name",
+		Namespace: "bogus-namespace",
+		}
+	
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},fakeNS.Name)
 	// Not realistic, we're just contriving a way to make Ensure fail
-	theError := fixtures.AlreadyExists
+	
 
 	// We don't care about the calls, really, but we have to register them or gomock gets upset
 	client.EXPECT().
 		Get(gomock.Any(), gomock.Any(), gomock.Any()).
 		Times(expectedNumStatics).
-		Return(theError)
+		Return(alreadyExists)
 	log.EXPECT().
-		Error(theError, "Failed to retrieve.", "resource", gomock.Any()).
+		Error(alreadyExists, "Failed to retrieve.", "resource", gomock.Any()).
 		Times(expectedNumStatics)
 
 	err := EnsureStatics(lr, client)

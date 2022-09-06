@@ -16,20 +16,25 @@ import (
 
 	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8serrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
-	// nolint:staticcheck
+	// // nolint:staticcheck
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var ctx = context.TODO()
 
+// var fakeNS=types.NamespacedName{
+// 	Name:      "bogus-name",
+// 	Namespace: "bogus-namespace",
+// }
 // TODO: Test add()/watches somehow?
 
 // fakeReconciler returns a SharedVolumeReconciler with a fake (as opposed to mocked)
@@ -42,9 +47,10 @@ func fakeReconciler() *SharedVolumeReconciler {
 		&awsefsv1alpha1.SharedVolume{},
 		&awsefsv1alpha1.SharedVolumeList{},
 	)
-
+	
 	return &SharedVolumeReconciler{
-		client: fake.NewFakeClientWithScheme(sch),
+		// client: fake.NewFakeClientWithScheme(sch),
+		client: fake.NewClientBuilder().WithScheme(sch).Build(),
 		scheme: sch,
 	}
 }
@@ -545,13 +551,14 @@ func TestReconcileGetError(t *testing.T) {
 		NamespacedName: nsname,
 	}
 	// Not realistic, we're just contriving a way to make Get fail
-	theError := fixtures.AlreadyExists
+	alreadyExists :=k8serrs.NewAlreadyExists(schema.GroupResource{}, nsname.Name)
+	// theError := fixtures.AlreadyExists
 
 	// We don't especially care about the call args; they're validated in other tests
-	client.EXPECT().Get(ctx, nsname, gomock.Any()).Return(theError)
+	client.EXPECT().Get(ctx, nsname, gomock.Any()).Return(alreadyExists)
 
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != theError {
-		t.Fatalf("Expected no requeue and error %v; got\nresult: %v\nerr: %v", theError, res, err)
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
+		t.Fatalf("Expected no requeue and error %v; got\nresult: %v\nerr: %v", alreadyExists, res, err)
 	}
 }
 
@@ -580,6 +587,7 @@ func TestUneditGetError(t *testing.T) {
 	pvNSName := types.NamespacedName{
 		Name: pvname,
 	}
+	alreadyExists :=k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 
 	gomock.InOrder(
 		client.EXPECT().Get(ctx, svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
@@ -588,10 +596,10 @@ func TestUneditGetError(t *testing.T) {
 				*obj.(*awsefsv1alpha1.SharedVolume) = *sv
 			},
 		),
-		client.EXPECT().Get(ctx, pvNSName, &corev1.PersistentVolume{}).Return(fixtures.AlreadyExists),
+		client.EXPECT().Get(ctx, pvNSName, &corev1.PersistentVolume{}).Return(alreadyExists),
 	)
 
-	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != alreadyExists {
 		t.Fatalf("Expected no requeue and an error, but got\nresult: %v\nerr: %v", res, err)
 	}
 }
@@ -628,7 +636,7 @@ func TestUneditUpdateError(t *testing.T) {
 	// The version of SharedVolume we expect to be passed to Update() will have that changed FSID
 	svUpdate := sv.DeepCopy()
 	svUpdate.Spec.FileSystemID = "abc123"
-
+	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
 	gomock.InOrder(
 		client.EXPECT().Get(ctx, svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
 			// The first Get() call populates the SharedVolume object
@@ -642,10 +650,14 @@ func TestUneditUpdateError(t *testing.T) {
 				*obj.(*corev1.PersistentVolume) = *pv
 			},
 		),
-		client.EXPECT().Update(ctx, svUpdate).Return(fixtures.NotFound),
+		
+		
+		
+		
+		client.EXPECT().Update(ctx, svUpdate).Return(notFound),
 	)
 
-	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != fixtures.NotFound {
+	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != notFound {
 		t.Fatalf("Expected no requeue and an error, but got\nresult: %v\nerr: %v", res, err)
 	}
 
@@ -686,16 +698,17 @@ func TestFinalizerUpdateError(t *testing.T) {
 		},
 	}
 
+	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
 	gomock.InOrder(
 		// First the reconciler gets the SharedVolume
 		client.EXPECT().Get(ctx, gomock.Any(), &awsefsv1alpha1.SharedVolume{}).Return(nil),
 		// uneditSharedVolume checks for the PV. We'll say it's 404 to make unedit return quick.
-		client.EXPECT().Get(ctx, gomock.Any(), &corev1.PersistentVolume{}).Return(fixtures.NotFound),
+		client.EXPECT().Get(ctx, gomock.Any(), &corev1.PersistentVolume{}).Return(notFound),
 		// Now we add the finalizer and try to update; trigger the error there.
-		client.EXPECT().Update(ctx, matchFinalizer{}).Return(fixtures.NotFound),
+		client.EXPECT().Update(ctx, matchFinalizer{}).Return(notFound),
 	)
 
-	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != fixtures.NotFound {
+	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != notFound {
 		t.Fatalf("Expected no requeue and an error, but got\nresult: %v\nerr: %v", res, err)
 	}
 
@@ -773,22 +786,22 @@ func TestEnsureFails(t *testing.T) {
 	// "Mock" the PVC Ensurable
 	mockPVCEnsurable := fixtures.NewMockEnsurable(ctrl)
 	hijackEnsurable(&corev1.PersistentVolumeClaim{}, sv, mockPVCEnsurable)
-
+	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
 	// We'll do two runs through Reconcile()...
 	gomock.InOrder(
 		// On the first run, we'll make the PV's Ensure fail
 		mockPVEnsurable.EXPECT().GetNamespacedName().Return(types.NamespacedName{}),
-		mockPVEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Return(fixtures.NotFound),
+		mockPVEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Return(notFound),
 		// On the second run, make it pass so we get to the PVC's Ensure
 		mockPVEnsurable.EXPECT().GetNamespacedName().Return(types.NamespacedName{}),
 		mockPVEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Return(nil),
 		// Make PVC's Ensure fail. (Use a different error so we can distinguish.)
 		mockPVCEnsurable.EXPECT().GetNamespacedName().Return(types.NamespacedName{}),
-		mockPVCEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Times(1).Return(fixtures.AlreadyExists),
+		mockPVCEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Times(1).Return(notFound),
 	)
 
 	// Do the first run. The NotFound error bubbles up from the PV's Ensure().
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.NotFound {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != notFound {
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// That should have caused Reconcile to set the SharedVolume's Status to Failed
@@ -801,8 +814,8 @@ func TestEnsureFails(t *testing.T) {
 	if sv.Status.Phase != awsefsv1alpha1.SharedVolumeFailed || sv.Status.Message != "NotFound" {
 		t.Errorf("Expected Failed Phase and NotFound Message but got %v", sv)
 	}
-
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// Note that the PV (and PVC) still hasn't been created because we mocked the guts out of its Ensure
@@ -878,6 +891,7 @@ func TestHandleDeleteFails(t *testing.T) {
 	if err := r.client.Update(ctx, sv); err != nil {
 		t.Fatal(err)
 	}
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
 
 	// 1) Make the PVC Ensurable's Delete fail
 	r.client = &test.FakeClientWithCustomErrors{
@@ -885,10 +899,10 @@ func TestHandleDeleteFails(t *testing.T) {
 		DeleteBehavior: []error{
 			// This has to be an error other than NotFound to make EnsurableImpl.Delete return it.
 			// Beyond that, it doesn't much matter.
-			fixtures.AlreadyExists,
+			alreadyExists,
 		},
 	}
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
 		t.Fatalf("Expected null result, AlreadyExists error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// The PVC should be gone from the cache, but the PV should not
@@ -916,10 +930,10 @@ func TestHandleDeleteFails(t *testing.T) {
 			// The first Delete is the PVC's
 			nil,
 			// The second is the PV's
-			fixtures.AlreadyExists,
+			alreadyExists,
 		},
 	}
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
 		t.Fatalf("Expected null result, AlreadyExists error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// Both the PVC and the PV should be gone from the cache
@@ -948,10 +962,10 @@ func TestHandleDeleteFails(t *testing.T) {
 		UpdateBehavior: []error{
 			// The SV's Update() to clear the finalizer is the first (and only) Update().
 			// There's a .Status().Update() before it, but that's different.
-			fixtures.AlreadyExists,
+			alreadyExists,
 		},
 	}
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != fixtures.AlreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
 		t.Fatalf("Expected null result, AlreadyExists error, but got\nresult: %v\nerr: %v", res, err)
 	}
 	// Both the PVC and the PV should be gone from the cache
@@ -1019,14 +1033,14 @@ func TestUpdateStatusFail(t *testing.T) {
 			Phase: awsefsv1alpha1.SharedVolumePending,
 		},
 	}
-
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
 	gomock.InOrder(
 		//logger.EXPECT().Info("Updating SharedVolume status", "status", sv.Status),
 		client.EXPECT().Status().Return(client),
-		client.EXPECT().Update(ctx, sv).Return(fixtures.AlreadyExists),
+		client.EXPECT().Update(ctx, sv).Return(alreadyExists),
 		//logger.EXPECT().Error(fixtures.AlreadyExists, "Failed to update SharedVolume status"),
 	)
-	if err := r.updateStatus(logger, sv); err != fixtures.AlreadyExists {
+	if err := r.updateStatus(logger, sv); err != alreadyExists {
 		t.Fatalf("Expected AlreadyExists but got %v", err)
 	}
 	assert.Contains(t, tl.Messages(), "Failed to update SharedVolume status")

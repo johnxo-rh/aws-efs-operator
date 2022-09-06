@@ -2,7 +2,7 @@ package statics
 
 import (
 	"context"
-	"openshift/aws-efs-operator/pkg/fixtures"
+	
 	"openshift/aws-efs-operator/pkg/test"
 	"openshift/aws-efs-operator/pkg/util"
 	"reflect"
@@ -24,6 +24,8 @@ import (
 	// logf "sigs.k8s.io/controller-runtime/pkg/log"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	k8serrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // TODO: Test add()/watches somehow?
@@ -275,10 +277,13 @@ func TestReconcileCRDVariants(t *testing.T) {
 		Client:      realclient,
 		GetBehavior: make([]error, len(staticResources)),
 	}
+	
 	r.client = fcwce
 	for i, staticResource := range staticResources {
 		// Set our fake to error on this reconcile.
-		fcwce.GetBehavior[i] = fixtures.AlreadyExists
+		alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},"")
+		
+		fcwce.GetBehavior[i] = alreadyExists
 		nsname := staticResource.GetNamespacedName()
 		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
 		if err != nil {
@@ -295,9 +300,12 @@ func TestReconcileCRDVariants(t *testing.T) {
 // TestReconcileUnexpected tests the code path where a resource we don't care about somehow makes it past the filter
 func TestReconcileUnexpected(t *testing.T) {
 	_, r := setup()
+
+	
+
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "foo", Name: "bar"}}
 	res, err := r.Reconcile(context.TODO(), req)
-	if err != nil {
+	if (err != nil) {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 	if !reflect.DeepEqual(res, test.NullResult) {
@@ -309,10 +317,12 @@ func TestReconcileUnexpected(t *testing.T) {
 func TestReconcileEnsureFails(t *testing.T) {
 	_, r := setup()
 
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},"")
+	
 	fcwce := &test.FakeClientWithCustomErrors{
 		Client: r.client,
 		// The first GET is for the CRD. Make the second (for the ensurable) fail.
-		GetBehavior: []error{nil, fixtures.AlreadyExists},
+		GetBehavior: []error{nil, alreadyExists},
 	}
 
 	// Any resource is fine, just making sure we actually try to Ensure it
