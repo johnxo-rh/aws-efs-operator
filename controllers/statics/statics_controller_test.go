@@ -14,7 +14,7 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,8 +36,10 @@ func setup() (logr.Logger, *StaticsReconciler) {
 	scheme.Scheme.AddKnownTypes(securityv1.SchemeGroupVersion, &securityv1.SecurityContextConstraints{})
 	// And so do extensions
 	scheme.Scheme.AddKnownTypes(apiextensions.SchemeGroupVersion, &apiextensions.CustomResourceDefinition{})
-
-	client := fake.NewFakeClientWithScheme(scheme.Scheme)
+	
+	//Deprecated
+	// client := fake.NewFakeClientWithScheme(scheme.Scheme)
+	client :=fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
 	err := client.Create(context.TODO(), &apiextensions.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -112,7 +114,7 @@ func TestReconcile(t *testing.T) {
 	for _, staticResource := range staticResources {
 		obj := staticResource.GetType()
 		nsname := staticResource.GetNamespacedName()
-		if err := r.client.Get(ctx, nsname, obj); !errors.IsNotFound(err) {
+		if err := r.client.Get(ctx, nsname, obj); !k8serrs.IsNotFound(err) {
 			t.Fatalf("Didn't expect to find resounce %v but got:\n%v", nsname, obj)
 		}
 	}
@@ -175,7 +177,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 
 	// Restores the state where a) our statics exist, b) the CRD is green.
 	reset := func() {
-		if err = r.client.Delete(ctx, crd); err != nil && !errors.IsNotFound(err) {
+		if err = r.client.Delete(ctx, crd); err != nil && !k8serrs.IsNotFound(err) {
 			t.Log(err)
 		}
 
@@ -212,7 +214,7 @@ func TestReconcileCRDVariants(t *testing.T) {
 			err = r.client.Get(ctx, nsname, obj)
 			// TODO(efried): Delete this conditional when https://github.com/openshift/aws-efs-operator/issues/23 is resolved.
 			if !expectSCC && nsname.Name == sccName {
-				if !errors.IsNotFound(err) {
+				if !k8serrs.IsNotFound(err) {
 					t.Fatalf("Expected SCC to be gone, but err was %v", err)
 				}
 			} else if err != nil {

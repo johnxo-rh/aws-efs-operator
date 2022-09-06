@@ -204,7 +204,7 @@ func EnsureStatics(log logr.Logger, client crclient.Client) error {
 		}
 	}
 	if errcount != 0 {
-		return fmt.Errorf("Encountered %d error(s) ensuring statics", errcount)
+		return fmt.Errorf("encountered %d error(s) ensuring statics", errcount)
 	}
 	return nil
 }
