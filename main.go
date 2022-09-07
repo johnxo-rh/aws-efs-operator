@@ -62,9 +62,9 @@ import (
 )
 
 var (
-	metricsHost               = "0.0.0.0"
+	// metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
-	operatorMetricsPort int32 = 8686
+	// operatorMetricsPort int32 = 8686
 	customMetricsPath       = "/metrics"
 	scheme                    = apiruntime.NewScheme()
 	log = ctrl.Log.WithName("cmd")

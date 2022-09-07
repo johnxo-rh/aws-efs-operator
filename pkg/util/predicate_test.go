@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,13 +34,13 @@ func mkTestObj(kind testObjKind) crclient.Object {
 
 // mkTestObj returns a new metav1.Object that's nil, or that our predicate methods should either
 // care about or not, per the value of `kind`.
-func mkTestMeta(kind testObjKind) metav1.Object {
-	obj := mkTestObj(kind)
-	if obj == nil {
-		return nil
-	}
-	return obj.(metav1.Object)
-}
+// func mkTestMeta(kind testObjKind) metav1.Object {
+// 	obj := mkTestObj(kind)
+// 	if obj == nil {
+// 		return nil
+// 	}
+// 	return obj.(metav1.Object)
+// }
 
 // TestCreateDeleteGeneric covers
 // - ICarePredicate

@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	// "sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,9 +40,9 @@ var log = logf.Log.WithName("controller_statics")
 // }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &StaticsReconciler{client: mgr.GetClient(), scheme: mgr.GetScheme()}
-}
+// func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+// 	return &StaticsReconciler{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+// }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func (r *StaticsReconciler) SetupWithManager(mgr ctrl.Manager) error {
