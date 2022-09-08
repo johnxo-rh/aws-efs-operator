@@ -590,13 +590,13 @@ func TestUneditGetError(t *testing.T) {
 	alreadyExists :=k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 
 	gomock.InOrder(
-		client.EXPECT().Get(ctx, svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
+		client.EXPECT().Get(gomock.Any(), svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
 			// The Get() call populates the SharedVolume object
 			func(ctx context.Context, key crclient.ObjectKey, obj runtime.Object) {
 				*obj.(*awsefsv1alpha1.SharedVolume) = *sv
 			},
 		),
-		client.EXPECT().Get(ctx, pvNSName, &corev1.PersistentVolume{}).Return(alreadyExists),
+		client.EXPECT().Get(gomock.Any(), pvNSName, &corev1.PersistentVolume{}).Return(alreadyExists),
 	)
 
 	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != alreadyExists {
@@ -638,13 +638,13 @@ func TestUneditUpdateError(t *testing.T) {
 	svUpdate.Spec.FileSystemID = "abc123"
 	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
 	gomock.InOrder(
-		client.EXPECT().Get(ctx, svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
+		client.EXPECT().Get(gomock.Any(), svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
 			// The first Get() call populates the SharedVolume object
 			func(ctx context.Context, key crclient.ObjectKey, obj runtime.Object) {
 				*obj.(*awsefsv1alpha1.SharedVolume) = *sv
 			},
 		),
-		client.EXPECT().Get(ctx, pve.GetNamespacedName(), &corev1.PersistentVolume{}).Do(
+		client.EXPECT().Get(gomock.Any(), pve.GetNamespacedName(), &corev1.PersistentVolume{}).Do(
 			// The second Get() populates the PersistentVolume object
 			func(ctx context.Context, key crclient.ObjectKey, obj runtime.Object) {
 				*obj.(*corev1.PersistentVolume) = *pv
@@ -1037,7 +1037,7 @@ func TestUpdateStatusFail(t *testing.T) {
 	gomock.InOrder(
 		//logger.EXPECT().Info("Updating SharedVolume status", "status", sv.Status),
 		client.EXPECT().Status().Return(client),
-		client.EXPECT().Update(ctx, sv).Return(alreadyExists),
+		client.EXPECT().Update(gomock.Any(), sv).Return(alreadyExists),
 		//logger.EXPECT().Error(fixtures.AlreadyExists, "Failed to update SharedVolume status"),
 	)
 	if err := r.updateStatus(logger, sv); err != alreadyExists {
