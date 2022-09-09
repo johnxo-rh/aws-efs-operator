@@ -811,11 +811,11 @@ func TestEnsureFails(t *testing.T) {
 			svMap, pvMap, pvcMap)
 	}
 	sv = svMap["proj1/sv"]
-	if sv.Status.Phase != awsefsv1alpha1.SharedVolumeFailed || sv.Status.Message != "NotFound" {
+	if sv.Status.Phase != awsefsv1alpha1.SharedVolumeFailed || sv.Status.Message != notFound.Error() {
 		t.Errorf("Expected Failed Phase and NotFound Message but got %v", sv)
 	}
 	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists{
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// Note that the PV (and PVC) still hasn't been created because we mocked the guts out of its Ensure
@@ -826,7 +826,7 @@ func TestEnsureFails(t *testing.T) {
 	}
 	// The second failure should have updated the status message to the other error
 	sv = svMap["proj1/sv"]
-	if sv.Status.Phase != awsefsv1alpha1.SharedVolumeFailed || sv.Status.Message != "AlreadyExists" {
+	if sv.Status.Phase != awsefsv1alpha1.SharedVolumeFailed || sv.Status.Message != alreadyExists.Error() {
 		t.Errorf("Expected Failed Phase and NotFound Message but got %v", sv)
 	}
 }

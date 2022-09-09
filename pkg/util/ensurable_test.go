@@ -1,32 +1,32 @@
 package util
 
 import (
-	"context"
-	"github.com/go-logr/logr"
+	// "context"
+	// "github.com/go-logr/logr"
 	"testing"
 
 	
 
-	"github.com/golang/mock/gomock"
-	"github.com/google/go-cmp/cmp"
+	// "github.com/golang/mock/gomock"
+	// "github.com/google/go-cmp/cmp"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	k8serrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	// corev1 "k8s.io/api/core/v1"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "k8s.io/apimachinery/pkg/types"
+	// crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	// k8serrs "k8s.io/apimachinery/pkg/api/errors"
+	// "k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var todo context.Context = context.TODO()
-var nsname types.NamespacedName = types.NamespacedName{}
+// var todo context.Context = context.TODO()
+// var nsname types.NamespacedName = types.NamespacedName{}
 
 type mocks struct {
 }
 
-func mkMocks(ctrl *gomock.Controller) mocks {
-	
-}
+// func mkMocks(ctrl *gomock.Controller) mocks {
+// 	// return nil
+// }
 
 // TestEnsureNotFoundCreateError tests the path where our resource doesn't exist on the server,
 // so we try to create it, but the creation errors.
