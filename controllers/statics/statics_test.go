@@ -1,9 +1,9 @@
 package statics
 
 import (
-	"fmt"
+	// "fmt"
 	"github.com/go-logr/logr"
-	"github.com/golang/mock/gomock"
+	// "github.com/golang/mock/gomock"
 	securityv1 "github.com/openshift/api/security/v1"
 	"golang.org/x/net/context"
 	appsv1 "k8s.io/api/apps/v1"
@@ -11,12 +11,12 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"openshift/aws-efs-operator/pkg/fixtures"
+	// "openshift/aws-efs-operator/pkg/fixtures"
 	"openshift/aws-efs-operator/pkg/util"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
-	k8serrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	// k8serrs "k8s.io/apimachinery/pkg/api/errors"
+	// "k8s.io/apimachinery/pkg/runtime/schema"
 
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	// nolint:staticcheck

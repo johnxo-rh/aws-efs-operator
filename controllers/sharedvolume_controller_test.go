@@ -555,7 +555,7 @@ func TestReconcileGetError(t *testing.T) {
 	// theError := fixtures.AlreadyExists
 
 	// We don't especially care about the call args; they're validated in other tests
-	client.EXPECT().Get(ctx, nsname, gomock.Any()).Return(alreadyExists)
+	client.EXPECT().Get(gomock.Any(), nsname, gomock.Any()).Return(alreadyExists)
 
 	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
 		t.Fatalf("Expected no requeue and error %v; got\nresult: %v\nerr: %v", alreadyExists, res, err)
@@ -654,7 +654,7 @@ func TestUneditUpdateError(t *testing.T) {
 		
 		
 		
-		client.EXPECT().Update(ctx, svUpdate).Return(notFound),
+		client.EXPECT().Update(gomock.Any(), svUpdate).Return(notFound),
 	)
 
 	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != notFound {
@@ -701,11 +701,11 @@ func TestFinalizerUpdateError(t *testing.T) {
 	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
 	gomock.InOrder(
 		// First the reconciler gets the SharedVolume
-		client.EXPECT().Get(ctx, gomock.Any(), &awsefsv1alpha1.SharedVolume{}).Return(nil),
+		client.EXPECT().Get(gomock.Any(), gomock.Any(), &awsefsv1alpha1.SharedVolume{}).Return(nil),
 		// uneditSharedVolume checks for the PV. We'll say it's 404 to make unedit return quick.
-		client.EXPECT().Get(ctx, gomock.Any(), &corev1.PersistentVolume{}).Return(notFound),
+		client.EXPECT().Get(gomock.Any(), gomock.Any(), &corev1.PersistentVolume{}).Return(notFound),
 		// Now we add the finalizer and try to update; trigger the error there.
-		client.EXPECT().Update(ctx, matchFinalizer{}).Return(notFound),
+		client.EXPECT().Update(gomock.Any(), matchFinalizer{}).Return(notFound),
 	)
 
 	if res, err := r.Reconcile(ctx, makeRequest(t, sv)); res != test.NullResult || err != notFound {
@@ -1018,10 +1018,10 @@ func TestUpdateStatusFail(t *testing.T) {
 	defer ctrl.Finish()
 
 	r, client := mockReconciler(ctrl)
-	ctx := context.TODO()
+	// ctx := context.TODO()
 	tl := util.NewTestLogger()
 	logger := tl.Logger()
-	ctx = logr.NewContext(ctx, logger)
+	// ctx = logr.NewContext(ctx, logger)
 
 	sv := &awsefsv1alpha1.SharedVolume{
 		ObjectMeta: metav1.ObjectMeta{
