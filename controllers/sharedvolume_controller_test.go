@@ -787,6 +787,7 @@ func TestEnsureFails(t *testing.T) {
 	mockPVCEnsurable := fixtures.NewMockEnsurable(ctrl)
 	hijackEnsurable(&corev1.PersistentVolumeClaim{}, sv, mockPVCEnsurable)
 	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 	// We'll do two runs through Reconcile()...
 	gomock.InOrder(
 		// On the first run, we'll make the PV's Ensure fail
@@ -797,7 +798,7 @@ func TestEnsureFails(t *testing.T) {
 		mockPVEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Return(nil),
 		// Make PVC's Ensure fail. (Use a different error so we can distinguish.)
 		mockPVCEnsurable.EXPECT().GetNamespacedName().Return(types.NamespacedName{}),
-		mockPVCEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Times(1).Return(notFound),
+		mockPVCEnsurable.EXPECT().Ensure(gomock.Any(), gomock.Any()).Times(1).Return(alreadyExists),
 	)
 
 	// Do the first run. The NotFound error bubbles up from the PV's Ensure().
@@ -814,7 +815,7 @@ func TestEnsureFails(t *testing.T) {
 	if sv.Status.Phase != awsefsv1alpha1.SharedVolumeFailed || sv.Status.Message != notFound.Error() {
 		t.Errorf("Expected Failed Phase and NotFound Message but got %v", sv)
 	}
-	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
+	// alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
 	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists{
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
