@@ -11,9 +11,10 @@ Keeping this abstracted lets us change the logic easily in the future if we need
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	// "k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	// logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -25,7 +26,7 @@ const (
 	labelValue = "true"
 )
 
-var log = logf.Log.WithName("controller_utils")
+// var log = logf.Log.WithName("controller_utils")
 
 // ICarePredicate provides a Watch filter that only passes objects we care about.
 // Use this when we can't match on owner, either because there is no runtime.Object owner
@@ -43,18 +44,18 @@ var ICarePredicate = predicate.Funcs{
 }
 
 // DoICare answers whether our object will trigger our watcher.
-func DoICare(obj runtime.Object) bool {
-	metaObj := obj.(metav1.Object)
-	l, ok := metaObj.GetLabels()[labelKey]
+func DoICare(obj client.Object) bool {
+	l, ok := obj.GetLabels()[labelKey]
 	if !ok {
 		return false
 	}
 	return l == labelValue
+
 }
 
 // MakeMeCare is the write side of the DoICare: it modifies obj
 // such that an event on it will make ICarePredicate pass.
-func MakeMeCare(obj runtime.Object) {
+func MakeMeCare(obj client.Object) {
 	metaObj := obj.(metav1.Object)
 	if metaObj.GetLabels() == nil {
 		metaObj.SetLabels(make(map[string]string))
@@ -62,7 +63,7 @@ func MakeMeCare(obj runtime.Object) {
 	metaObj.GetLabels()[labelKey] = labelValue
 }
 
-func passes(obj runtime.Object, meta metav1.Object) bool {
+func passes(obj client.Object, meta metav1.Object) bool {
 	// if obj == nil {
 	// 	log.Error(nil, "No object for event!")
 	// 	return false
@@ -72,4 +73,6 @@ func passes(obj runtime.Object, meta metav1.Object) bool {
 	// 	return false
 	// }
 	return DoICare(obj)
+
+	
 }
