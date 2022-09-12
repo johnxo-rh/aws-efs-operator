@@ -63,13 +63,13 @@ func MakeMeCare(obj runtime.Object) {
 }
 
 func passes(obj runtime.Object, meta metav1.Object) bool {
-	if obj == nil {
-		log.Error(nil, "No object for event!")
-		return false
-	}
-	if meta == nil {
-		log.Error(nil, "No metadata for event object!")
-		return false
-	}
+	// if obj == nil {
+	// 	log.Error(nil, "No object for event!")
+	// 	return false
+	// }
+	// if meta == nil {
+	// 	log.Error(nil, "No metadata for event object!")
+	// 	return false
+	// }
 	return DoICare(obj)
 }
