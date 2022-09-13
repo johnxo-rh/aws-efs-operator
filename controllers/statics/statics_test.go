@@ -1,8 +1,7 @@
 package statics
 
 import (
-	// "fmt"
-	"github.com/go-logr/logr"
+
 	// "github.com/golang/mock/gomock"
 	securityv1 "github.com/openshift/api/security/v1"
 	"golang.org/x/net/context"
@@ -28,10 +27,7 @@ func TestEnsureStatics(t *testing.T) {
 	checkNumStatics(t)
 
 	ctx := context.TODO()
-	logger, errx := logr.FromContext(ctx)
-	if errx != nil {
-		panic(errx)
-	}
+	logger := util.NewTestLogger().Logger()
 
 	var statics map[string]crclient.Object
 
@@ -114,7 +110,7 @@ func TestEnsureStatics(t *testing.T) {
 
 // TestEnsureStaticsError tests the error path of EnsureStatics
 func TestEnsureStaticsError(t *testing.T) {
-	
+
 }
 
 // Test_static_GetType makes sure Ensurable.GetType() returns the right type for each of our statics.

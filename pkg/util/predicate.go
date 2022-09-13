@@ -11,6 +11,8 @@ Keeping this abstracted lets us change the logic easily in the future if we need
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	// "k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -26,7 +28,7 @@ const (
 	labelValue = "true"
 )
 
-// var log = logf.Log.WithName("controller_utils")
+var log = logf.Log.WithName("controller_utils")
 
 // ICarePredicate provides a Watch filter that only passes objects we care about.
 // Use this when we can't match on owner, either because there is no runtime.Object owner
@@ -38,7 +40,7 @@ var ICarePredicate = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool { return passes(e.Object, nil) },
 	// UpdateFunc passes if *either* the new or old object is one we care about.
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return passes(e.ObjectOld, nil) || passes(e.ObjectNew,nil)
+		return passes(e.ObjectOld, nil) || passes(e.ObjectNew, nil)
 	},
 	GenericFunc: func(e event.GenericEvent) bool { return passes(e.Object, nil) },
 }
@@ -64,15 +66,14 @@ func MakeMeCare(obj client.Object) {
 }
 
 func passes(obj client.Object, meta metav1.Object) bool {
-	// if obj == nil {
-	// 	log.Error(nil, "No object for event!")
-	// 	return false
-	// }
+	if obj == nil {
+		log.Error(nil, "No object for event!")
+		return false
+	}
 	// if meta == nil {
 	// 	log.Error(nil, "No metadata for event object!")
 	// 	return false
 	// }
 	return DoICare(obj)
 
-	
 }

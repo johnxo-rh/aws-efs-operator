@@ -16,11 +16,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8serrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	k8serrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
 
 // var fakeNS=types.NamespacedName{
 // 	Name:      "bogus-name",
@@ -47,7 +46,7 @@ func fakeReconciler() *SharedVolumeReconciler {
 		&awsefsv1alpha1.SharedVolume{},
 		&awsefsv1alpha1.SharedVolumeList{},
 	)
-	
+
 	return &SharedVolumeReconciler{
 		// client: fake.NewFakeClientWithScheme(sch),
 		client: fake.NewClientBuilder().WithScheme(sch).Build(),
@@ -461,9 +460,7 @@ func TestReconcile(t *testing.T) {
 	}
 	recoverPV()
 
-	// Test the delete path. Note that this doesn't happen by deleting the SharedVolume (yet). We
-	// need to be kubernetes here and mark the SharedVolume for deletion, wait until finalizers are
-	// gone, and *then* delete it.
+	// Test the delete path.
 	// This doesn't actually need a real timestamp
 	delTime := metav1.Now()
 	sv2 = svMap[fmt.Sprintf("%s/%s", nsy, svb)]
@@ -476,31 +473,22 @@ func TestReconcile(t *testing.T) {
 	}
 	// The PV and PVC should be gone, but the SV is still there
 	svMap, pvMap, pvcMap = getResources(t, r.client)
-	if len(svMap) != 2 || len(pvMap) != 1 || len(pvcMap) != 1 {
-		t.Fatalf("Expected two SharedVolume resources and on PV & PVC, but got\nSharedVolumes: %s\nPVs: %s\nPVCs: %s",
+	if len(svMap) != 1 || len(pvMap) != 1 || len(pvcMap) != 1 {
+		t.Fatalf("Expected one SharedVolume resources and on PV & PVC, but got\nSharedVolumes: %s\nPVs: %s\nPVCs: %s",
 			svMap, pvMap, pvcMap)
 	}
-	// The finalizer ought to be gone from our SharedVolume now
-	if finalizers = svMap[fmt.Sprintf("%s/%s", nsy, svb)].GetFinalizers(); len(finalizers) != 0 {
-		t.Fatalf("Expected finalizers to be gone, but got %v", finalizers)
-	}
+
 	// Another reconcile at this stage should be a no-op
 	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
 		t.Fatalf("Expected no requeue, no error; got\nresult: %v\nerr: %v", res, err)
 	}
 	svMap, pvMap, pvcMap = getResources(t, r.client)
-	if len(svMap) != 2 || len(pvMap) != 1 || len(pvcMap) != 1 {
-		t.Fatalf("Expected two SharedVolume resources and on PV & PVC, but got\nSharedVolumes: %s\nPVs: %s\nPVCs: %s",
+	if len(svMap) != 1 || len(pvMap) != 1 || len(pvcMap) != 1 {
+		t.Fatalf("Expected one SharedVolume resources and on PV & PVC, but got\nSharedVolumes: %s\nPVs: %s\nPVCs: %s",
 			svMap, pvMap, pvcMap)
 	}
 	sv2 = svMap[fmt.Sprintf("%s/%s", nsy, svb)]
-	if finalizers = sv2.GetFinalizers(); len(finalizers) != 0 {
-		t.Fatalf("Expected finalizers to be gone, but got %v", finalizers)
-	}
-	// Delete the SharedVolume for real
-	if err = r.client.Delete(ctx, sv2); err != nil {
-		t.Fatal(err)
-	}
+
 	validateResources(t, r.client, 1)
 	// This reconcile ought to hit our "deleted out of band" path, which is a no-op.
 	if res, err = r.Reconcile(ctx, req); res != test.NullResult || err != nil {
@@ -551,7 +539,7 @@ func TestReconcileGetError(t *testing.T) {
 		NamespacedName: nsname,
 	}
 	// Not realistic, we're just contriving a way to make Get fail
-	alreadyExists :=k8serrs.NewAlreadyExists(schema.GroupResource{}, nsname.Name)
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, nsname.Name)
 	// theError := fixtures.AlreadyExists
 
 	// We don't especially care about the call args; they're validated in other tests
@@ -587,7 +575,7 @@ func TestUneditGetError(t *testing.T) {
 	pvNSName := types.NamespacedName{
 		Name: pvname,
 	}
-	alreadyExists :=k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 
 	gomock.InOrder(
 		client.EXPECT().Get(gomock.Any(), svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
@@ -636,7 +624,7 @@ func TestUneditUpdateError(t *testing.T) {
 	// The version of SharedVolume we expect to be passed to Update() will have that changed FSID
 	svUpdate := sv.DeepCopy()
 	svUpdate.Spec.FileSystemID = "abc123"
-	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
+	notFound := k8serrs.NewNotFound(schema.GroupResource{}, sv.Name)
 	gomock.InOrder(
 		client.EXPECT().Get(gomock.Any(), svNSName, &awsefsv1alpha1.SharedVolume{}).Do(
 			// The first Get() call populates the SharedVolume object
@@ -650,10 +638,7 @@ func TestUneditUpdateError(t *testing.T) {
 				*obj.(*corev1.PersistentVolume) = *pv
 			},
 		),
-		
-		
-		
-		
+
 		client.EXPECT().Update(gomock.Any(), svUpdate).Return(notFound),
 	)
 
@@ -698,7 +683,7 @@ func TestFinalizerUpdateError(t *testing.T) {
 		},
 	}
 
-	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
+	notFound := k8serrs.NewNotFound(schema.GroupResource{}, sv.Name)
 	gomock.InOrder(
 		// First the reconciler gets the SharedVolume
 		client.EXPECT().Get(gomock.Any(), gomock.Any(), &awsefsv1alpha1.SharedVolume{}).Return(nil),
@@ -786,7 +771,7 @@ func TestEnsureFails(t *testing.T) {
 	// "Mock" the PVC Ensurable
 	mockPVCEnsurable := fixtures.NewMockEnsurable(ctrl)
 	hijackEnsurable(&corev1.PersistentVolumeClaim{}, sv, mockPVCEnsurable)
-	notFound := k8serrs.NewNotFound(schema.GroupResource{},sv.Name)
+	notFound := k8serrs.NewNotFound(schema.GroupResource{}, sv.Name)
 	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 	// We'll do two runs through Reconcile()...
 	gomock.InOrder(
@@ -816,7 +801,7 @@ func TestEnsureFails(t *testing.T) {
 		t.Errorf("Expected Failed Phase and NotFound Message but got %v", sv)
 	}
 	// alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
-	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists{
+	if res, err := r.Reconcile(ctx, req); res != test.NullResult || err != alreadyExists {
 		t.Errorf("Expected no requeue and a error, got\nresult: %v\nerr: %v", res, err)
 	}
 	// Note that the PV (and PVC) still hasn't been created because we mocked the guts out of its Ensure
@@ -892,7 +877,7 @@ func TestHandleDeleteFails(t *testing.T) {
 	if err := r.client.Update(ctx, sv); err != nil {
 		t.Fatal(err)
 	}
-	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 
 	// 1) Make the PVC Ensurable's Delete fail
 	r.client = &test.FakeClientWithCustomErrors{
@@ -1001,16 +986,12 @@ func TestHandleDeleteFails(t *testing.T) {
 	if _, ok := pvBySharedVolume[svk]; ok {
 		t.Fatal("Expected the PV cache to be clear")
 	}
-	// And both got deleted
+	// And all got deleted
 	svMap, pvMap, pvcMap = getResources(t, r.client)
-	if len(svMap) != 1 || len(pvMap) != 0 || len(pvcMap) != 0 {
+	if len(svMap) != 0 || len(pvMap) != 0 || len(pvcMap) != 0 {
 		t.Fatalf("Expected one SVs and no PVs or PVCs, but got:\nSVs: %s\nPVs: %s\nPVCs: %s", svMap, pvMap, pvcMap)
 	}
 	sv = svMap["proj1/sv"]
-	// And now the finalizer is gone
-	if len(sv.GetFinalizers()) != 0 {
-		t.Fatalf("Expected finalizer to be gone but found %v", sv.GetFinalizers())
-	}
 }
 
 // TestUpdateStatusFail covers the `updateStatus` path where the Update fails.
@@ -1034,7 +1015,7 @@ func TestUpdateStatusFail(t *testing.T) {
 			Phase: awsefsv1alpha1.SharedVolumePending,
 		},
 	}
-	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},sv.Name)
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, sv.Name)
 	gomock.InOrder(
 		//logger.EXPECT().Info("Updating SharedVolume status", "status", sv.Status),
 		client.EXPECT().Status().Return(client),
