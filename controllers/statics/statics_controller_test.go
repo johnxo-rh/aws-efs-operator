@@ -2,7 +2,7 @@ package statics
 
 import (
 	"context"
-	
+
 	"openshift/aws-efs-operator/pkg/test"
 	"openshift/aws-efs-operator/pkg/util"
 	"reflect"
@@ -14,18 +14,18 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
-	
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	k8serrs "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	// TODO: pkg/client/fake is deprecated, replace with pkg/envtest
 	"sigs.k8s.io/controller-runtime/pkg/client/fake" //nolint:staticcheck
 	// logf "sigs.k8s.io/controller-runtime/pkg/log"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	k8serrs "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // TODO: Test add()/watches somehow?
@@ -36,10 +36,10 @@ func setup() (logr.Logger, *StaticsReconciler) {
 	scheme.Scheme.AddKnownTypes(securityv1.SchemeGroupVersion, &securityv1.SecurityContextConstraints{})
 	// And so do extensions
 	scheme.Scheme.AddKnownTypes(apiextensions.SchemeGroupVersion, &apiextensions.CustomResourceDefinition{})
-	
+
 	//Deprecated
 	// client := fake.NewFakeClientWithScheme(scheme.Scheme)
-	client :=fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 
 	err := client.Create(context.TODO(), &apiextensions.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -49,10 +49,7 @@ func setup() (logr.Logger, *StaticsReconciler) {
 	if err != nil {
 		panic(err)
 	}
-	logger, errx := logr.FromContext(context.TODO())
-	if err != nil {
-		panic(errx)
-	}
+	logger := util.NewTestLogger().Logger()
 	return logger, &StaticsReconciler{client: client, scheme: scheme.Scheme}
 }
 
@@ -279,12 +276,12 @@ func TestReconcileCRDVariants(t *testing.T) {
 		Client:      realclient,
 		GetBehavior: make([]error, len(staticResources)),
 	}
-	
+
 	r.client = fcwce
 	for i, staticResource := range staticResources {
 		// Set our fake to error on this reconcile.
-		alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},"")
-		
+		alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, "")
+
 		fcwce.GetBehavior[i] = alreadyExists
 		nsname := staticResource.GetNamespacedName()
 		res, err := r.Reconcile(context.TODO(), reconcile.Request{NamespacedName: nsname})
@@ -303,11 +300,9 @@ func TestReconcileCRDVariants(t *testing.T) {
 func TestReconcileUnexpected(t *testing.T) {
 	_, r := setup()
 
-	
-
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "foo", Name: "bar"}}
 	res, err := r.Reconcile(context.TODO(), req)
-	if (err != nil) {
+	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 	if !reflect.DeepEqual(res, test.NullResult) {
@@ -319,8 +314,8 @@ func TestReconcileUnexpected(t *testing.T) {
 func TestReconcileEnsureFails(t *testing.T) {
 	_, r := setup()
 
-	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{},"")
-	
+	alreadyExists := k8serrs.NewAlreadyExists(schema.GroupResource{}, "")
+
 	fcwce := &test.FakeClientWithCustomErrors{
 		Client: r.client,
 		// The first GET is for the CRD. Make the second (for the ensurable) fail.
