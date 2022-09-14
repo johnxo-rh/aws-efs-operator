@@ -11,7 +11,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/runtime"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	k8serrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -64,10 +63,7 @@ func TestEnsureNotFoundCreateError(t *testing.T) {
 	gomock.InOrder(
 		// Get called with the ObjType
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(notFound),
-		// m.log.EXPECT().Info("Creating.", "resource", nsname),
-		// Create called with the return from DefinitionGetter
 		m.client.EXPECT().Create(todo, m.getterAndCachedObj).Return(alreadyExists),
-		// m.log.EXPECT().Error(fx.AlreadyExists, "Failed to create", "resource", nsname),
 	)
 
 	if err := m.ensurable.Ensure(m.log.Logger(), m.client); err != alreadyExists {
@@ -84,9 +80,7 @@ func TestEnsureNotFoundCreateSuccess(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(notFound),
-		// m.log.EXPECT().Info("Creating.", "resource", nsname),
 		m.client.EXPECT().Create(todo, m.getterAndCachedObj).Return(nil),
-		// m.log.EXPECT().Info("Created.", "resource", nsname),
 	)
 
 	if err := m.ensurable.Ensure(m.log.Logger(), m.client); err != nil {
@@ -102,7 +96,6 @@ func TestEnsureGetError(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(alreadyExists),
-		// m.log.EXPECT().Error(fx.AlreadyExists, "Failed to retrieve.", "resource", nsname),
 	)
 
 	if err := m.ensurable.Ensure(m.log.Logger(), m.client); err != alreadyExists {
@@ -127,8 +120,6 @@ func TestEnsureExistsNoUpdate(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
-		// m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		// m.log.EXPECT().Info("No update needed."),
 	)
 
 	if err := m.ensurable.Ensure(m.log.Logger(), m.client); err != nil {
@@ -154,13 +145,7 @@ func TestEnsureExistsUpdateError(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
-		// m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		// m.log.EXPECT().Info("Update needed. Updating..."),
-		// m.log.EXPECT().V(2).Return(m.log),
-		// Don't bother to check the debug message
-		// m.log.EXPECT().Info(gomock.Any()),
 		m.client.EXPECT().Update(todo, m.getterAndCachedObj).Return(notFound),
-		// m.log.EXPECT().Error(fx.NotFound, "Failed to update.", "resource", nsname),
 	)
 
 	if err := m.ensurable.Ensure(m.log.Logger(), m.client); err != notFound {
@@ -192,13 +177,7 @@ func TestEnsureExistsUpdateSuccess(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
-		// m.log.EXPECT().Info("Found. Checking whether update is needed.", "resource", nsname),
-		// m.log.EXPECT().Info("Update needed. Updating..."),
-		// m.log.EXPECT().V(2).Return(m.log),
-		// Don't bother to check the debug message
-		// m.log.EXPECT().Info(gomock.Any()),
 		m.client.EXPECT().Update(todo, m.getterAndCachedObj).Return(nil),
-		// m.log.EXPECT().Info("Updated.", "resource", nsname),
 	)
 
 	if err := m.ensurable.Ensure(m.log.Logger(), m.client); err != nil {
@@ -235,7 +214,6 @@ func TestDeleteGetError(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(alreadyExists),
-		// m.log.EXPECT().Error(fx.AlreadyExists, "Failed to retrieve.", "resource", nsname),
 	)
 
 	if err := m.ensurable.Delete(m.log.Logger(), m.client); err != alreadyExists {
@@ -252,7 +230,6 @@ func TestDeleteOutOfBand(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
-		// m.log.EXPECT().Info("Deleting.", "resource", nsname),
 		m.client.EXPECT().Delete(todo, m.getTypeAndServerObj).Return(notFound),
 	)
 
@@ -269,9 +246,7 @@ func TestDeleteDeleteError(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
-		// m.log.EXPECT().Info("Deleting.", "resource", nsname),
 		m.client.EXPECT().Delete(todo, m.getTypeAndServerObj).Return(alreadyExists),
-		// m.log.EXPECT().Error(fx.AlreadyExists, "Failed to delete.", "resource", nsname),
 	)
 
 	if err := m.ensurable.Delete(m.log.Logger(),m.client); err != alreadyExists {
@@ -287,7 +262,6 @@ func TestDeleteDeletes(t *testing.T) {
 
 	gomock.InOrder(
 		m.client.EXPECT().Get(todo, nsname, m.getTypeAndServerObj).Return(nil),
-		// m.log.EXPECT().Info("Deleting.", "resource", nsname),
 		m.client.EXPECT().Delete(todo, m.getTypeAndServerObj).Return(nil),
 	)
 

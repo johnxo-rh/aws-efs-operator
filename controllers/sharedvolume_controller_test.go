@@ -487,7 +487,8 @@ func TestReconcile(t *testing.T) {
 		t.Fatalf("Expected one SharedVolume resources and on PV & PVC, but got\nSharedVolumes: %s\nPVs: %s\nPVCs: %s",
 			svMap, pvMap, pvcMap)
 	}
-	sv2 = svMap[fmt.Sprintf("%s/%s", nsy, svb)]
+	//lint not used
+	// sv2 = svMap[fmt.Sprintf("%s/%s", nsy, svb)]
 
 	validateResources(t, r.client, 1)
 	// This reconcile ought to hit our "deleted out of band" path, which is a no-op.
@@ -991,7 +992,8 @@ func TestHandleDeleteFails(t *testing.T) {
 	if len(svMap) != 0 || len(pvMap) != 0 || len(pvcMap) != 0 {
 		t.Fatalf("Expected one SVs and no PVs or PVCs, but got:\nSVs: %s\nPVs: %s\nPVCs: %s", svMap, pvMap, pvcMap)
 	}
-	sv = svMap["proj1/sv"]
+	//lint not used
+	// sv = svMap["proj1/sv"]
 }
 
 // TestUpdateStatusFail covers the `updateStatus` path where the Update fails.
